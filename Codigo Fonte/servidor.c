@@ -4,6 +4,33 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+//#include "zlib.h"
+
+char *run(char comand[])
+{
+    FILE *result;
+    int i;
+    char data, saida[1024];
+
+    result = popen(comand, "r");
+
+    if (result == NULL)
+    {
+        puts("Unable to open process");
+        return ("Unable to open process");
+    }
+
+    data = fgetc(result);
+    while (data != EOF)
+    {
+        saida[i] = data;
+        i++;
+        data = fgetc(result);
+    }
+
+    fclose(result);
+    return (data);
+}
 
 int main()
 {
@@ -21,20 +48,20 @@ int main()
         .sin_port = htons(port)};
     int csize = sizeof caddr;
 
-
     if ((server = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printf("\n Socket creation error \n");
         return -1;
     }
 
-
-    if (bind(server, (struct sockaddr *)&saddr, sizeof saddr) < 0){
+    if (bind(server, (struct sockaddr *)&saddr, sizeof saddr) < 0)
+    {
         perror("bind failed");
         return -1;
     }
 
-    if (listen(server, 5) < 0){
+    if (listen(server, 5) < 0)
+    {
         perror("listen");
         return -1;
     }
@@ -45,15 +72,14 @@ int main()
 
         valread = recv(client, buffer, sizeof buffer, 0);
 
-
-        //send(client, mensagem, tamanho da mesagem, 0)
-        //int = recv(client, mensagem, tamanho da mensagem, 0)
+        // send(client, mensagem, tamanho da mesagem, 0)
+        // int = recv(client, mensagem, tamanho da mensagem, 0)
 
         send(client, buffer, valread, 0);
 
         puts(buffer);
-        printf("%s| %d\n", buffer, valread);
-        
+        printf("%s\n", buffer);
+
         fflush(stdout);
 
         close(client);
