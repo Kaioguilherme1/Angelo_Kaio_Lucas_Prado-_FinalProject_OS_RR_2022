@@ -4,26 +4,22 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
+//#include "zlib.h"
 
 int main(int argc, char const *argv[])
 {
 
-    
     int port = 20;
     char ip[16] = "192.168.1.2";
     char buffer[1024] = {0};
     char message[1024] = "Ola server";
 
-
-    //dados do cliente é ips
+    // dados do cliente é ips
     int client = 0, valread, client_fd;
     struct sockaddr_in serv_addr = {
         .sin_family = AF_INET,
         .sin_port = htons(port)};
 
-    
-    
     if (inet_pton(AF_INET, ip, &serv_addr.sin_addr) <= 0)
     {
         printf(
@@ -51,7 +47,7 @@ int main(int argc, char const *argv[])
     printf("Hello message sent\n");
 
     valread = read(client, buffer, 1024);
-    printf("%s| %d\n", buffer, valread);
+    printf("%s\n", buffer);
 
     // closing the connected socket
     close(client_fd);
