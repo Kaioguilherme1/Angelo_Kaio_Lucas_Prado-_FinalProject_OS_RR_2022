@@ -1,10 +1,45 @@
-
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-//#include "zlib.h"
+#include <stdlib.h>
+#include <string.h>
+#include "zlib.h"
+
+void error_output(char* error_message) {
+    fprintf(stderr, "\033[31m[+]%s.\n", error_message);
+    exit(1);
+}
+
+char* compress_buffer(char* buffer) {
+    ulong buffer_size = strlen(buffer) * sizeof(char) + 1;
+    ulong destLen = compressBound(buffer_size);
+
+    char* output = (char*)malloc(destLen * sizeof(char));
+
+    int test = compress(output, &destLen, buffer, buffer_size);
+    
+    if (test == Z_OK) return output;
+    else if (test == Z_BUF_ERROR) error_output("Could Not Compress Because Buffer Is Too Small");
+    else if (test == Z_MEM_ERROR) error_output("Could Not Compress Because There Was Not Enough Memory");
+    else error_output("Could Not Compress");
+}
+
+char* uncompress_buffer(char* buffer, ulong original_size, ulong compressed_buffer_size) {
+    char* output = (char*)malloc(original_size * sizeof(char));
+
+    ulong destLen = compressed_buffer_size;
+
+    int test = uncompress(output, &original_size, buffer, compressed_buffer_size);
+
+    if (test == Z_OK) return output;
+    else if (test == Z_BUF_ERROR) error_output("Could Not Uncompress Because Buffer Is Too Small");
+    else if (test == Z_DATA_ERROR) error_output("Could Not Uncompress Because Data Is Incomplete Or Corrupted");
+    else error_output("Could Not Uncompress");
+
+    return output;
+}
 
 char *run(char comand[])
 {
@@ -34,7 +69,7 @@ char *run(char comand[])
 
 int main()
 {
-    char buffer[225];
+    char buffer[1024] = "Ola cliente";
     int port = 20;
     int server = 0;
 
@@ -70,15 +105,32 @@ int main()
     {
         client = accept(server, (struct sockaddr *)&caddr, &csize);
 
-        valread = recv(client, buffer, sizeof buffer, 0);
+//Uncompress
+        ulong message_size;
+        ulong message_byte_size;
+        
+        recv(client, &message_size, sizeof(ulong), 0);
+        recv(client, &message_byte_size, sizeof(ulong), 0);
 
-        // send(client, mensagem, tamanho da mesagem, 0)
-        // int = recv(client, mensagem, tamanho da mensagem, 0)
+        char* buff = (char*) malloc(message_byte_size * sizeof(char));
 
-        send(client, buffer, valread, 0);
+        recv(client, buff, message_byte_size, 0);
+        //printf("msg recebida comprimida %s\n", buff);
 
-        puts(buffer);
-        printf("%s\n", buffer);
+        char* buffer_uncompress = uncompress_buffer(buff, message_size, message_byte_size);
+        //printf("msg recebida descomprimida %s\n", buffer_uncompress);
+
+//Compress
+        ulong buffer_size = strlen(buffer) * sizeof(char) + 1;
+        ulong buffer_byte_size = compressBound(buffer_size);
+
+        //printf("msg descomprimida enviada %s\n", buffer);           
+        char* buffer_compress = compress_buffer(buffer);             //chamando função para comprimir/compactar mensagem do buffer
+        //printf("msg enviada comprimida %s\n", buffer_compress);
+
+        send(client, &buffer_size, sizeof(ulong), 0);
+        send(client, &buffer_byte_size, sizeof(ulong), 0);
+        send(client, buffer_compress, buffer_byte_size, 0);
 
         fflush(stdout);
 
