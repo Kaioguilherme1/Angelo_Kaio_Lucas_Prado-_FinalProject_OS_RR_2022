@@ -1,10 +1,21 @@
-#include <arpa/inet.h>
 #include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <unistd.h>
+#include <getopt.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <arpa/inet.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
 #include "zlib.h"
+
+char *log_filename;
+int logfd;
+int sockfd;
+int logflag = 0;
+int cprflag = 0;
 
 void error_output(char* error_message) {
     fprintf(stderr, "\033[31m[+]%s.\n", error_message);
@@ -40,14 +51,64 @@ char* uncompress_buffer(char* buffer, ulong original_size, ulong compressed_buff
     return output;
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char **argv)
 {
 
-    int port = 20;
-    char ip[16] = "192.168.1.3";
+    char ip[16] = "192.168.1.2";
     char buffer[1024] = {0};
-    char message[1024] = "Ola server";
+    char message[1024] = "Ola server, tudo bem?";
+    int opt;
+    int port;
+    int pflag = 0;  
+    int lflag = 0;
+    char *hostname = "localhost";
 
+
+    struct option longopts[] = {
+      {"port", required_argument, NULL, 'p'},
+      {"log", required_argument, NULL, 'l'},
+      {"hostname", required_argument, NULL, 'h'},
+      {"compress", no_argument, NULL, 'c'},
+      {0, 0, 0, 0}};
+
+    if (argc == 1)
+    { // Sem argumentos
+        printf("Parametros faltando\n");
+        exit(0);
+    }
+
+     while ((opt = getopt_long(argc, argv, "p:l:h:c", longopts, NULL)) != -1)
+    {
+        switch (opt)
+        {
+        case 'p':
+            port = atoi(optarg);
+            printf("port: %d\n", port);
+            break;
+        case 'l':
+            log_filename = optarg;
+            logfd = creat(log_filename, S_IRWXU);
+            logflag = 1;
+        if (logfd < 1)
+        {
+            fprintf(stderr, "can't open file %s\n", log_filename);
+            exit(1);
+        }
+            lflag = 1;
+            break;
+        case 'h':
+            hostname = optarg;
+            break;
+        case 'c':
+            cprflag = 1;
+            break;
+        default:
+        {
+            fprintf(stderr, "unrecognized argument");
+            exit(1);
+        }
+    }
+  }
     // dados do cliente é ips
     int server;
     int client = 0, valread, client_fd;
@@ -75,35 +136,39 @@ int main(int argc, char const *argv[])
         return -1;
     };
 
-//Compress
-    ulong message_size = strlen(message) * sizeof(char) + 1;
-    ulong message_byte_size = compressBound(message_size);
+    if (cprflag)
+    {
+        //Compress
+        ulong message_size = strlen(message) * sizeof(char) + 1;
+        ulong message_byte_size = compressBound(message_size);
 
-    //printf("msg descomprimida enviada %s\n", message);
-    char* message_compress = compress_buffer(message);           //chamando função para comprimir/compactar mensagem do buffer
-    //printf("msg enviada comprimida %s\n", message_compress);
+        printf("msg descomprimida enviada %s\n", message);
 
-    send(client, &message_size, sizeof(ulong), 0);
-    send(client, &message_byte_size, sizeof(ulong), 0);
-    send(client, message_compress, message_byte_size, 0);
+        char* message_compress = compress_buffer(message);           //chamando função para comprimir/compactar mensagem do buffer
+        printf("msg enviada comprimida %s\n", message_compress);
 
-//Uncompress
-    ulong buffer_size;
-    ulong buffer_byte_size;
+        send(client, &message_size, sizeof(ulong), 0);
+        send(client, &message_byte_size, sizeof(ulong), 0);
+        send(client, message_compress, message_byte_size, 0);
 
-    recv(client, &buffer_size, sizeof(ulong), 0);
-    recv(client, &buffer_byte_size, sizeof(ulong), 0);
+        //Uncompress
+        ulong buffer_size;
+        ulong buffer_byte_size;
 
-    char* tmp = (char*)malloc(buffer_byte_size * sizeof(char));
+        recv(client, &buffer_size, sizeof(ulong), 0);
+        recv(client, &buffer_byte_size, sizeof(ulong), 0);
 
-    recv(client, tmp, buffer_byte_size, 0);
-    //printf("msg recebida comprimida %s\n", tmp);
+        char* tmp = (char*)malloc(buffer_byte_size * sizeof(char));
 
-    char* message_uncompress = uncompress_buffer(tmp, buffer_size, buffer_byte_size);
-    //printf("msg recebida descomprimida %s\n", message_uncompress);
+        recv(client, tmp, buffer_byte_size, 0);
+        printf("msg recebida comprimida %s\n", tmp);
+
+        char* message_uncompress = uncompress_buffer(tmp, buffer_size, buffer_byte_size);
+        printf("msg recebida descomprimida %s\n", message_uncompress);
 
 
-    // closing the connected socket
-    close(client_fd);
-    return 0;
+        // closing the connected socket
+        close(client_fd);
+        return 0;
+    }
 }
