@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -7,52 +8,65 @@
 #include <string.h>
 #include "zlib.h"
 
-void error_output(char* error_message) {
+void error_output(char *error_message)
+{
     fprintf(stderr, "\033[31m[+]%s.\n", error_message);
     exit(1);
 }
 
-char* compress_buffer(char* buffer) {
+char *compress_buffer(char *buffer)
+{
     ulong buffer_size = strlen(buffer) * sizeof(char) + 1;
     ulong destLen = compressBound(buffer_size);
 
-    char* output = (char*)malloc(destLen * sizeof(char));
+    char *output = (char *)malloc(destLen * sizeof(char));
 
     int test = compress(output, &destLen, buffer, buffer_size);
-    
-    if (test == Z_OK) return output;
-    else if (test == Z_BUF_ERROR) error_output("Could Not Compress Because Buffer Is Too Small");
-    else if (test == Z_MEM_ERROR) error_output("Could Not Compress Because There Was Not Enough Memory");
-    else error_output("Could Not Compress");
+
+    if (test == Z_OK)
+        return output;
+    else if (test == Z_BUF_ERROR)
+        error_output("Could Not Compress Because Buffer Is Too Small");
+    else if (test == Z_MEM_ERROR)
+        error_output("Could Not Compress Because There Was Not Enough Memory");
+    else
+        error_output("Could Not Compress");
 }
 
-char* uncompress_buffer(char* buffer, ulong original_size, ulong compressed_buffer_size) {
-    char* output = (char*)malloc(original_size * sizeof(char));
+char *uncompress_buffer(char *buffer, ulong original_size, ulong compressed_buffer_size)
+{
+    char *output = (char *)malloc(original_size * sizeof(char));
 
     ulong destLen = compressed_buffer_size;
 
     int test = uncompress(output, &original_size, buffer, compressed_buffer_size);
-
-    if (test == Z_OK) return output;
-    else if (test == Z_BUF_ERROR) error_output("Could Not Uncompress Because Buffer Is Too Small");
-    else if (test == Z_DATA_ERROR) error_output("Could Not Uncompress Because Data Is Incomplete Or Corrupted");
-    else error_output("Could Not Uncompress");
+    printf("%d", test);
+    if (test == Z_OK)
+        return output;
+    else if (test == Z_BUF_ERROR)
+        error_output("Could Not Uncompress Because Buffer Is Too Small");
+    else if (test == Z_DATA_ERROR)
+        error_output("Could Not Uncompress Because Data Is Incomplete Or Corrupted");
+    else
+        error_output("Could Not Uncompress");
 
     return output;
 }
 
-char *run(char comand[])
+void run(char comand[], char *saida)
 {
     FILE *result;
     int i;
-    char data, saida[1024];
+    char data;
+
+    // static char saida[1024];
+    // memset(saida, '\0', 1024);
 
     result = popen(comand, "r");
 
     if (result == NULL)
     {
         puts("Unable to open process");
-        return ("Unable to open process");
     }
 
     data = fgetc(result);
@@ -62,17 +76,49 @@ char *run(char comand[])
         i++;
         data = fgetc(result);
     }
-
+    // printf("%s",saida);
     fclose(result);
-    return (data);
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    char buffer[1024] = "Ola cliente";
-    int port = 20;
+    char buffer[1024];
+    char optc = 0;
+    int port;
+    float version = 0.4;
     int server = 0;
 
+    struct option OpcoesLongas[] = {
+        {"port", required_argument, NULL, 'p'},
+        {"log", no_argument, NULL, 'l'},
+        {"versao", no_argument, NULL, 'v'},
+        {0, 0, 0, 0}};
+
+    if (argc == 1)
+    { // Sem argumentos
+        printf("Parametros faltando\n");
+        exit(0);
+    }
+
+    while ((optc = getopt_long(argc, argv, "v:p:l", OpcoesLongas, NULL)) != -1)
+    {
+        switch (optc)
+        {
+        case 'v': // Ajuda
+            printf("Versão %f\n", version);
+            exit(0);
+        case 'p': // port
+            port = atoi(optarg);
+            printf("port: %d\n", port);
+            break;
+        case 'l': // log
+            printf("log:\n");
+            break;
+        default: // Qualquer parametro nao tratado
+            printf("Parametros incorretos.\n");
+            exit(1);
+        }
+    }
     // dados do servidor
     int client, valread;
 
@@ -105,28 +151,34 @@ int main()
     {
         client = accept(server, (struct sockaddr *)&caddr, &csize);
 
-//Uncompress
+        // Uncompress
         ulong message_size;
         ulong message_byte_size;
-        
+
         recv(client, &message_size, sizeof(ulong), 0);
         recv(client, &message_byte_size, sizeof(ulong), 0);
 
-        char* buff = (char*) malloc(message_byte_size * sizeof(char));
+        char *buff = (char *)malloc(message_byte_size * sizeof(char));
 
         recv(client, buff, message_byte_size, 0);
-        //printf("msg recebida comprimida %s\n", buff);
+        printf("msg recebida comprimida %s\n", buff);
+        printf("size 1: %ld\n", sizeof(buff));
 
-        char* buffer_uncompress = uncompress_buffer(buff, message_size, message_byte_size);
-        //printf("msg recebida descomprimida %s\n", buffer_uncompress);
+        char *buffer_uncompress = uncompress_buffer(buff, message_size, message_byte_size);
+        printf("msg recebida descomprimida %s\n", buffer_uncompress);
+        printf("ponteiro: %s endereço: %d\n", buffer_uncompress, *buffer_uncompress);
 
-//Compress
-        ulong buffer_size = strlen(buffer) * sizeof(char) + 1;
+        char result[1024];
+        // run(buffer_uncompress, result);
+
+        // Compress
+        ulong buffer_size = strlen(buffer_uncompress) * sizeof(char) + 1;
         ulong buffer_byte_size = compressBound(buffer_size);
 
-        //printf("msg descomprimida enviada %s\n", buffer);           
-        char* buffer_compress = compress_buffer(buffer);             //chamando função para comprimir/compactar mensagem do buffer
-        //printf("msg enviada comprimida %s\n", buffer_compress);
+        printf("size 2: %ld \n", sizeof(buffer_uncompress));
+        // printf("msg descomprimida enviada %s\n", buffer);
+        char *buffer_compress = compress_buffer(buffer_uncompress); // chamando função para comprimir/compactar mensagem do buffer
+        // printf("msg enviada comprimida %s\n", buffer_compress);
 
         send(client, &buffer_size, sizeof(ulong), 0);
         send(client, &buffer_byte_size, sizeof(ulong), 0);
