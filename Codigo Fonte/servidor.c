@@ -16,11 +16,8 @@ void error_output(char *error_message)
     exit(1);
 }
 
-char *compress_buffer(char *buffer)
+char *compress_buffer(char *buffer, ulong original_size, ulong compressed_buffer_size)
 {
-    ulong buffer_size = strlen(buffer) * sizeof(char) + 1;
-    ulong destLen = compressBound(buffer_size);
-
     char *output = (char *)malloc(destLen * sizeof(char));
 
     int test = compress(output, &destLen, buffer, buffer_size);
@@ -186,7 +183,7 @@ int main(int argc, char **argv)
                 ulong buffer_byte_size = compressBound(buffer_size);
 
                 // printf("msg descomprimida enviada %s\n", buffer);
-                char *buffer_compress = compress_buffer(result); // chamando função para comprimir/compactar mensagem do buffer
+                char *buffer_compress = compress_buffer(result, buffer_size, buffer_byte_size); // chamando função para comprimir/compactar mensagem do buffer
                 // printf("msg enviada comprimida %s\n", buffer_compress);
 
                 send(client, &buffer_size, sizeof(ulong), 0);
@@ -198,9 +195,7 @@ int main(int argc, char **argv)
             else
             {
                 recv(client, comand, 1024, 0);
-
                 run(comand, result, return_size);
-
                 send(client, result, sizeof(result), 0);
             }*/
             fflush(stdout);
