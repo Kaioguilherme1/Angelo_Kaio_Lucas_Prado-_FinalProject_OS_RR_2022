@@ -73,7 +73,7 @@ int main(int argc, char **argv)
     int pflag = 0;
     int lflag = 0;
     int stop = 1;
-    char *hostname;
+    char *hostname = "localhost";
 
     struct option longopts[] = {
         {"ip", required_argument, NULL, 'i'},
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         {
         case 'i':
             ip = optarg;
-            printf("ip: %s\n", ip);
+            printf("host: %s\n", ip);
             break;
         case 'p':
             port = atoi(optarg);
@@ -155,7 +155,7 @@ int main(int argc, char **argv)
     // send(client, "1", 1, 0);
     while (stop)
     {
-        printf("%s@%s ~# ",hostname, ip);
+        printf("user@%s ~# ", ip);
         fgets(message, 1024, stdin);
 
         // if(strcmp(message, "exit()")){
@@ -183,6 +183,7 @@ int main(int argc, char **argv)
         }
         else
         {
+
             // Uncompress
             ulong buffer_size;
             ulong buffer_byte_size;
@@ -201,6 +202,7 @@ int main(int argc, char **argv)
     }
     return 0;
     /*}else{
+
         send(client, message, sizeof(message), 0);
         recv(client, buffer, sizeof(1024), 0);
         printf("%s \n", buffer);
