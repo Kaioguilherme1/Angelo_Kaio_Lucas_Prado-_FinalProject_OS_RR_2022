@@ -23,11 +23,8 @@ void error_output(char *error_message)
     exit(1);
 }
 
-char *compress_buffer(char *buffer)
+char *compress_buffer(char *buffer, ulong original_size, ulong compressed_buffer_size)
 {
-    ulong buffer_size = strlen(buffer) * sizeof(char) + 1;
-    ulong destLen = compressBound(buffer_size);
-
     char *output = (char *)malloc(destLen * sizeof(char));
 
     int test = compress(output, &destLen, buffer, buffer_size);
@@ -73,7 +70,7 @@ int main(int argc, char **argv)
     int pflag = 0;
     int lflag = 0;
     int stop = 1;
-    char *hostname = "localhost";
+    char *hostname;
 
     struct option longopts[] = {
         {"ip", required_argument, NULL, 'i'},
@@ -95,7 +92,7 @@ int main(int argc, char **argv)
         {
         case 'i':
             ip = optarg;
-            printf("host: %s\n", ip);
+            printf("ip: %s\n", ip);
             break;
         case 'p':
             port = atoi(optarg);
@@ -155,7 +152,7 @@ int main(int argc, char **argv)
     // send(client, "1", 1, 0);
     while (stop)
     {
-        printf("user@%s ~# ", ip);
+        printf("%s@%s ~# ",hostname, ip);
         fgets(message, 1024, stdin);
 
         // if(strcmp(message, "exit()")){
@@ -168,7 +165,7 @@ int main(int argc, char **argv)
         ulong message_byte_size = compressBound(message_size);
         // printf("msg descomprimida enviada %s\n", message);
 
-        char *message_compress = compress_buffer(message); // chamando função para comprimir/compactar mensagem do buffer
+        char *message_compress = compress_buffer(message, message_size, message_byte_size); // chamando função para comprimir/compactar mensagem do buffer
         // printf("msg enviada comprimida %s\n", message_compress);
 
         send(client, &message_size, sizeof(ulong), 0);
@@ -183,7 +180,6 @@ int main(int argc, char **argv)
         }
         else
         {
-
             // Uncompress
             ulong buffer_size;
             ulong buffer_byte_size;
@@ -202,7 +198,6 @@ int main(int argc, char **argv)
     }
     return 0;
     /*}else{
-
         send(client, message, sizeof(message), 0);
         recv(client, buffer, sizeof(1024), 0);
         printf("%s \n", buffer);
