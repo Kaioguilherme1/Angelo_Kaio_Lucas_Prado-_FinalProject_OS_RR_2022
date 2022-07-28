@@ -10,7 +10,6 @@
 
 #define return_size 1024
 
-
 void error_output(char *error_message)
 {
     fprintf(stderr, "\033[31m[+]%s.\n", error_message);
@@ -69,86 +68,95 @@ void run(char *command, char *output, int output_size)
     if (ferror(file) != 0)
         printf("Error reading file");
     else
-            output[new_size++] = '\0';
+        output[new_size++] = '\0';
 
-        pclose(file);
+    pclose(file);
 
-        if (strcmp(output, "") == 0){
-            printf("command doesn't exist.\n");
-            bzero(output, output_size);
-            strcpy(output, "command doesn't exist.");
-        }
+    if (strcmp(output, "") == 0)
+    {
+        printf("command doesn't exist.\n");
+        // bzero(output, output_size);
+        strcpy(output, "command doesn't exist.");
+    }
 }
 
 int main(int argc, char **argv)
 {
     char result[return_size];
+    char comand[return_size];
     char optc = 0;
     int port;
     float version = 0.4;
     int server = 0;
-    
-    struct option OpcoesLongas[] = {
+    char *cprflag;
+
+    struct option longopts[] = {
         {"port", required_argument, NULL, 'p'},
         {"log", no_argument, NULL, 'l'},
         {"versao", no_argument, NULL, 'v'},
         {0, 0, 0, 0}};
 
-    if (argc == 1){ // Sem argumentos
+    if (argc == 1)
+    { // Sem argumentos
         printf("Parametros faltando\n");
         exit(0);
     }
 
-    while ((optc = getopt_long(argc, argv, "v:p:l", OpcoesLongas, NULL)) != -1)
+    while ((optc = getopt_long(argc, argv, "v:p:l", longopts, NULL)) != -1)
     {
-        switch (optc){
-            case 'v': // Ajuda
-                printf("Versão %f\n", version);
-                exit(0);
-            case 'p': // port
-                port = atoi(optarg);
-                printf("port: %d\n",port);
-                break;
-            case 'l': // log
-                printf("log:\n");
-                break;
-            default: // Qualquer parametro nao tratado
-                printf("Parametros incorretos.\n");
-                exit(1);
-            }
+        switch (optc)
+        {
+        case 'v': // Ajuda
+            printf("Versão %f\n", version);
+            exit(0);
+        case 'p': // port
+            port = atoi(optarg);
+            printf("port: %d\n", port);
+            break;
+        case 'l': // log
+            printf("log:\n");
+            break;
+        default: // Qualquer parametro nao tratado
+            printf("Parametros incorretos.\n");
+            exit(1);
+        }
     }
-        // dados do servidor
-        int client, valread;
+    // dados do servidor
+    int client, valread;
 
-        struct sockaddr_in caddr;
-        struct sockaddr_in saddr = {
-            .sin_family = AF_INET,
-            .sin_addr.s_addr = htonl(INADDR_ANY),
-            .sin_port = htons(port)};
-        int csize = sizeof caddr;
+    struct sockaddr_in caddr;
+    struct sockaddr_in saddr = {
+        .sin_family = AF_INET,
+        .sin_addr.s_addr = htonl(INADDR_ANY),
+        .sin_port = htons(port)};
+    int csize = sizeof caddr;
 
-        if ((server = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        {
-            printf("\n Socket creation error \n");
-            return -1;
-        }
+    if ((server = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        printf("\n Socket creation error \n");
+        return -1;
+    }
 
-        if (bind(server, (struct sockaddr *)&saddr, sizeof saddr) < 0)
-        {
-            perror("bind failed");
-            return -1;
-        }
+    if (bind(server, (struct sockaddr *)&saddr, sizeof saddr) < 0)
+    {
+        perror("bind failed");
+        return -1;
+    }
 
-        if (listen(server, 5) < 0)
-        {
-            perror("listen");
-            return -1;
-        }
+    if (listen(server, 5) < 0)
+    {
+        perror("listen");
+        return -1;
+    }
 
+    while (1)
+    {
+        client = accept(server, (struct sockaddr *)&caddr, &csize);
+        // recv(client, cprflag, sizeof(cprflag), 0);
+        // if (strtol(cprflag, NULL, 1))
+        //{
         while (1)
         {
-            client = accept(server, (struct sockaddr *)&caddr, &csize);
-
             // Uncompress
             ulong message_size;
             ulong message_byte_size;
@@ -159,28 +167,45 @@ int main(int argc, char **argv)
             char *buff = (char *)malloc(message_byte_size * sizeof(char));
 
             recv(client, buff, message_byte_size, 0);
-            //printf("msg recebida comprimida %s\n", buff);
+            // printf("msg recebida comprimida %s\n", buff);
 
             char *buffer_uncompress = uncompress_buffer(buff, message_size, message_byte_size);
-            //printf("msg recebida descomprimida %s\n", buffer_uncompress);
-            
-            run(buffer_uncompress, result, return_size);
+            // printf("msg recebida descomprimida %s\n", buffer_uncompress);
+            if (strncmp(buffer_uncompress, "exit()", 6) == 0)
+            {
+                printf("exit");
+                // stop = 0;
+                close(client);
+            }
+            else
+            {
+                run(buffer_uncompress, result, return_size);
 
-            // Compress
-            ulong buffer_size = strlen(result) * sizeof(char) + 1;
-            ulong buffer_byte_size = compressBound(buffer_size);
+                // Compress
+                ulong buffer_size = strlen(result) * sizeof(char) + 1;
+                ulong buffer_byte_size = compressBound(buffer_size);
 
-            // printf("msg descomprimida enviada %s\n", buffer);
-            char *buffer_compress = compress_buffer(result); // chamando função para comprimir/compactar mensagem do buffer
-            // printf("msg enviada comprimida %s\n", buffer_compress);
+                // printf("msg descomprimida enviada %s\n", buffer);
+                char *buffer_compress = compress_buffer(result); // chamando função para comprimir/compactar mensagem do buffer
+                // printf("msg enviada comprimida %s\n", buffer_compress);
 
-            send(client, &buffer_size, sizeof(ulong), 0);
-            send(client, &buffer_byte_size, sizeof(ulong), 0);
-            send(client, buffer_compress, buffer_byte_size, 0);
+                send(client, &buffer_size, sizeof(ulong), 0);
+                send(client, &buffer_byte_size, sizeof(ulong), 0);
+                send(client, buffer_compress, buffer_byte_size, 0);
+            }
 
+            /*}
+            else
+            {
+                recv(client, comand, 1024, 0);
+
+                run(comand, result, return_size);
+
+                send(client, result, sizeof(result), 0);
+            }*/
             fflush(stdout);
-            //close(client);
         }
-
-        return 0;
     }
+
+    return 0;
+}
